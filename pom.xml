@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ─────────────────────────────────────────
+         ROOT PARENT POM
+         ───────────────────────────────────────── -->
+    <groupId>com.paymentgateway</groupId>
+    <artifactId>payment-gateway-parent</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>Payment Gateway — Parent</name>
+
+    <!-- ─────────────────────────────────────────
+         SPRING BOOT PARENT
+         ───────────────────────────────────────── -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.5</version>
+        <relativePath/>
+    </parent>
+
+    <!-- ─────────────────────────────────────────
+         ALL CHILD MODULES
+         ───────────────────────────────────────── -->
+    <modules>
+        <module>api-gateway</module>
+        <module>payment-service</module>
+        <module>recon-service</module>
+    </modules>
+
+    <!-- ─────────────────────────────────────────
+         SHARED VERSIONS — change once, applies everywhere
+         ───────────────────────────────────────── -->
+    <properties>
+        <java.version>21</java.version>
+        <jjwt.version>0.12.5</jjwt.version>
+    </properties>
+
+    <!-- ─────────────────────────────────────────
+         SHARED DEPENDENCIES — every child gets these
+         ───────────────────────────────────────── -->
+    <dependencies>
+
+        <!-- Lombok — every service uses it -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Actuator — health checks for every service -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Test — every service needs tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ─────────────────────────────────────────
+         SHARED BUILD CONFIG
+         ───────────────────────────────────────── -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
