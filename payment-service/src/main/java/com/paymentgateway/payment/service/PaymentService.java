@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -47,13 +48,18 @@ public class PaymentService {
         String cachedPaymentId = redisTemplate.opsForValue().get(redisKey);
 
         if (cachedPaymentId != null) {
-            // Duplicate request — return cached response
             log.info("Duplicate request detected for key: {}", idempotencyKey);
-            return paymentRepository.findById(UUID.fromString(cachedPaymentId))
-                    .map(this::mapToResponse)
-                    .orElseThrow(() -> new RuntimeException("Payment not found"));
-        }
+            Optional<Payment> cached = paymentRepository.findById(UUID.fromString(cachedPaymentId));
 
+            if (cached.isPresent()) {
+                // Payment exists — return cached response
+                return mapToResponse(cached.get());
+            } else {
+                // Payment failed previously — clear stale Redis key and continue
+                redisTemplate.delete(redisKey);
+                log.info("Cleared stale idempotency key, retrying: {}", idempotencyKey);
+            }
+        }
         // Step 2 — Create payment record in DB
         Payment payment = new Payment();
         payment.setMerchantId(merchantId);

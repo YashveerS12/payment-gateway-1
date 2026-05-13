@@ -25,6 +25,10 @@ public class Merchant {
     @Column(name = "api_key", nullable = false, unique = true, length = 64)
     private String apiKey;
 
+    // Hashed password — never store plain text
+    @Column(name = "password")
+    private String password;
+
     @Column(name = "callback_url")
     private String callbackUrl;
 

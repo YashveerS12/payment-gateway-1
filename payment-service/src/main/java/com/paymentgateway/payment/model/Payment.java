@@ -30,7 +30,8 @@ public class Payment {
     private String currency = "INR";
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "payment_status")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private PaymentStatus status = PaymentStatus.INITIATED;
 
     @Column(name = "bank_adapter", length = 50)
@@ -39,7 +40,8 @@ public class Payment {
     @Column(name = "bank_ref_id", length = 100)
     private String bankRefId;
 
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "jsonb", name = "metadata")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     private String metadata;
 
     @Column(name = "failure_reason")

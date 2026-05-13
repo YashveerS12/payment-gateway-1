@@ -27,14 +27,17 @@ public class ReconProcessor {
     // ─────────────────────────────────────────
     public void process(LocalDate reconDate) {
         log.info("Starting reconciliation for date: {}", reconDate);
+        jdbcTemplate.update(
+                "DELETE FROM recon_records WHERE recon_date = ?", reconDate
+        );
 
         // Step 1 — Get all payments for the date from DB
         List<Map<String, Object>> payments = jdbcTemplate.queryForList("""
-            SELECT id, amount, status, bank_ref_id
-            FROM payments
-            WHERE DATE(created_at) = ?
-            AND status IN ('SUCCESS', 'FAILED')
-        """, reconDate);
+    SELECT id, amount, status::text, bank_ref_id
+    FROM payments
+    WHERE DATE(created_at) = ?
+    AND status::text IN ('SUCCESS', 'FAILED')
+""", reconDate);
 
         log.info("Found {} payments for date: {}", payments.size(), reconDate);
 

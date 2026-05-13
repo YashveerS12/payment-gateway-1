@@ -31,7 +31,8 @@ public class ReconRecord {
     private BigDecimal transactionAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "mismatch_type")
+    @Column(name = "mismatch_type", columnDefinition = "mismatch_type")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private MismatchType mismatchType;
 
     @Column(name = "mismatch_description")

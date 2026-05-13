@@ -5,17 +5,12 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class RegisterMerchantRequest {
-
-    @NotBlank(message = "Name is required")
-    private String name;
+public class LoginRequest {
 
     @Email(message = "Valid email is required")
     @NotBlank(message = "Email is required")
     private String email;
 
     @NotBlank(message = "Password is required")
-    private String password;      // ← this must be here
-
-    private String callbackUrl;
+    private String password;
 }

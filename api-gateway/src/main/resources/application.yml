@@ -16,8 +16,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: none
     show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   data:
     redis:
@@ -28,8 +31,30 @@ jwt:
   secret: ${JWT_SECRET:your-256-bit-secret-change-in-production-please}
   expiration-ms: 86400000
 
+# ─── Service URLs ───────────────────────────
+payment-service:
+  url: ${PAYMENT_SERVICE_URL:http://localhost:8081}
+
+recon-service:
+  url: ${RECON_SERVICE_URL:http://localhost:8082}
+
+notification-service:
+  url: ${NOTIFICATION_SERVICE_URL:http://localhost:3002}
+
+# ─── Rate limiting ───────────────────────────
+rate-limit:
+  default-requests-per-minute: 100
+
+# ─── Actuator ───────────────────────────────
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+# ─── Logging ────────────────────────────────
+logging:
+  level:
+    com.paymentgateway: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
