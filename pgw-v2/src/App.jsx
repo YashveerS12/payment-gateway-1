@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import OnboardingPage from "./pages/OnboardingPage";
 import DashboardPage from "./pages/DashboardPage";
 import PaymentsPage from "./pages/PaymentsPage";
@@ -67,7 +67,7 @@ const navItems = [
   { id: "webhooks", label: "Webhooks", icon: <Icon.Webhooks /> },
 ];
 
-export default function App() {
+function AppInner() {
   const { token, merchant, logout } = useAuth();
   const [page, setPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -196,4 +196,8 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+export default function App() {
+  return <AuthProvider><AppInner /></AuthProvider>;
 }
