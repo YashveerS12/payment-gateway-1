@@ -111,10 +111,24 @@ public class GatewayController {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Merchant-Id", merchantId);
-        headers.set("Content-Type", "application/json");
 
-        // Remove Transfer-Encoding to prevent duplicate headers
-        headers.remove("Transfer-Encoding");
+        // Forward Idempotency-Key header
+        String idempotencyKey = request.getHeader("Idempotency-Key");
+        if (idempotencyKey != null) {
+            headers.set("Idempotency-Key", idempotencyKey);
+        }
+
+        // Forward Authorization header
+        String auth = request.getHeader("Authorization");
+        if (auth != null) {
+            headers.set("Authorization", auth);
+        }
+
+        // Forward Content-Type
+        String contentType = request.getHeader("Content-Type");
+        if (contentType != null) {
+            headers.set("Content-Type", contentType);
+        }
 
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
 
@@ -125,17 +139,14 @@ public class GatewayController {
                     entity,
                     Object.class
             );
-
-            // Remove Transfer-Encoding from response
-            HttpHeaders responseHeaders = new HttpHeaders();
-            responseHeaders.putAll(response.getHeaders());
-            responseHeaders.remove("Transfer-Encoding");
-
             return ResponseEntity
                     .status(response.getStatusCode())
-                    .headers(responseHeaders)
                     .body(response.getBody());
 
+        } catch (HttpClientErrorException e) {
+            return ResponseEntity
+                    .status(e.getStatusCode())
+                    .body(e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Gateway routing error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
