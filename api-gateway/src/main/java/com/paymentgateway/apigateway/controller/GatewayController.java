@@ -106,30 +106,42 @@ public class GatewayController {
         return forward(targetUrl, body, request, merchantId);
     }
 
-    private ResponseEntity<Object> forward(String targetUrl, Object body,
+    private ResponseEntity<Object> forward(String url, Object body,
                                            HttpServletRequest request, String merchantId) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Merchant-Id", merchantId);
+        headers.set("Content-Type", "application/json");
+
+        // Remove Transfer-Encoding to prevent duplicate headers
+        headers.remove("Transfer-Encoding");
+
+        HttpEntity<Object> entity = new HttpEntity<>(body, headers);
+
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Merchant-Id", merchantId);
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.valueOf(request.getMethod()),
+                    entity,
+                    Object.class
+            );
 
-            String idempotencyKey = request.getHeader("Idempotency-Key");
-            if (idempotencyKey != null) headers.set("Idempotency-Key", idempotencyKey);
+            // Remove Transfer-Encoding from response
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.putAll(response.getHeaders());
+            responseHeaders.remove("Transfer-Encoding");
 
-            HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-            HttpMethod method = HttpMethod.valueOf(request.getMethod());
+            return ResponseEntity
+                    .status(response.getStatusCode())
+                    .headers(responseHeaders)
+                    .body(response.getBody());
 
-            return restTemplate.exchange(targetUrl, method, entity, Object.class);
-
-        } catch (HttpClientErrorException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Gateway routing error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", "Service unavailable: " + e.getMessage()));
+                    .body(Map.of("error", "Service unavailable"));
         }
     }
-
     private String getMerchantId() {
         return SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal().toString();
