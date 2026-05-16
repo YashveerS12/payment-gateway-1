@@ -24,48 +24,34 @@ public class ReconController {
 
     private final ReconService reconService;
 
-    // ─────────────────────────────────────────
-    // GET /v1/recon/summary?date=2025-06-01
-    // Get daily recon summary
-    // ─────────────────────────────────────────
     @GetMapping("/summary")
     public ResponseEntity<ReconSummaryResponse> getSummary(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestHeader(value = "X-Merchant-Id", required = false) String merchantId) {
 
-        log.info("Getting recon summary for date: {}", date);
-        ReconSummaryResponse summary = reconService.getSummary(date);
+        log.info("Getting recon summary for date: {} merchant: {}", date, merchantId);
+        ReconSummaryResponse summary = reconService.getSummary(date, merchantId);
         return ResponseEntity.ok(summary);
     }
 
-    // ─────────────────────────────────────────
-    // GET /v1/recon/mismatches?date=2025-06-01&type=AMOUNT_MISMATCH
-    // List mismatched records
-    // ─────────────────────────────────────────
     @GetMapping("/mismatches")
     public ResponseEntity<List<MismatchResponse>> getMismatches(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date,
-            @RequestParam(required = false) MismatchType type) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) MismatchType type,
+            @RequestHeader(value = "X-Merchant-Id", required = false) String merchantId) {
 
-        log.info("Getting mismatches for date: {} type: {}", date, type);
-        List<MismatchResponse> mismatches = reconService.getMismatches(date, type);
+        log.info("Getting mismatches for date: {} type: {} merchant: {}", date, type, merchantId);
+        List<MismatchResponse> mismatches = reconService.getMismatches(date, type, merchantId);
         return ResponseEntity.ok(mismatches);
     }
 
-    // ─────────────────────────────────────────
-    // POST /v1/recon/trigger
-    // Manually trigger recon job
-    // ─────────────────────────────────────────
     @PostMapping("/trigger")
     public ResponseEntity<Map<String, String>> triggerRecon(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestHeader(value = "X-Merchant-Id", required = false) String merchantId) {
 
-        log.info("Manually triggering recon for date: {}", date);
-
-        // Run in background thread so API returns immediately
-        new Thread(() -> reconService.triggerRecon(date)).start();
+        log.info("Triggering recon for date: {} merchant: {}", date, merchantId);
+        new Thread(() -> reconService.triggerRecon(date, merchantId)).start();
 
         return ResponseEntity.ok(Map.of(
                 "status", "TRIGGERED",
@@ -74,17 +60,13 @@ public class ReconController {
         ));
     }
 
-    // ─────────────────────────────────────────
-    // GET /v1/recon/export?date=2025-06-01
-    // Download CSV report
-    // ─────────────────────────────────────────
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportCsv(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestHeader(value = "X-Merchant-Id", required = false) String merchantId) {
 
-        log.info("Exporting CSV for date: {}", date);
-        byte[] csvBytes = reconService.exportCsv(date);
+        log.info("Exporting CSV for date: {} merchant: {}", date, merchantId);
+        byte[] csvBytes = reconService.exportCsv(date, merchantId);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

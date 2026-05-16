@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -24,22 +25,31 @@ public class ReconService {
     private final ReconProcessor reconProcessor;
     private final CsvReportGenerator csvReportGenerator;
 
-    // ─────────────────────────────────────────
-    // Trigger reconciliation for a date
-    // ─────────────────────────────────────────
-    public void triggerRecon(LocalDate reconDate) {
-        log.info("Triggering recon for date: {}", reconDate);
+    // Trigger recon
+    public void triggerRecon(LocalDate reconDate, String merchantId) {
+        log.info("Triggering recon for date: {} merchant: {}", reconDate, merchantId);
         reconProcessor.process(reconDate);
         log.info("Recon completed for date: {}", reconDate);
     }
 
-    // ─────────────────────────────────────────
-    // Get summary for a date
-    // ─────────────────────────────────────────
-    public ReconSummaryResponse getSummary(LocalDate reconDate) {
-        long total      = reconRecordRepository.countByReconDate(reconDate);
-        long mismatched = reconRecordRepository
-                .countByReconDateAndResolved(reconDate, false);
+    public void triggerRecon(LocalDate reconDate) {
+        triggerRecon(reconDate, null);
+    }
+
+    // Get summary filtered by merchant
+    public ReconSummaryResponse getSummary(LocalDate reconDate, String merchantId) {
+        long total;
+        long mismatched;
+
+        if (merchantId != null && !merchantId.isEmpty()) {
+            UUID mId = UUID.fromString(merchantId);
+            total      = reconRecordRepository.countByReconDateAndMerchantId(reconDate, mId);
+            mismatched = reconRecordRepository.countByReconDateAndMerchantIdAndResolved(reconDate, mId, false);
+        } else {
+            total      = reconRecordRepository.countByReconDate(reconDate);
+            mismatched = reconRecordRepository.countByReconDateAndResolved(reconDate, false);
+        }
+
         long matched    = total - mismatched;
         long unresolved = mismatched;
 
@@ -54,36 +64,42 @@ public class ReconService {
         return response;
     }
 
-    // ─────────────────────────────────────────
-    // Get all mismatches for a date
-    // ─────────────────────────────────────────
-    public List<MismatchResponse> getMismatches(LocalDate reconDate,
-                                                MismatchType type) {
-        List<ReconRecord> records;
-
-        if (type != null) {
-            records = reconRecordRepository
-                    .findByReconDateAndMismatchType(reconDate, type);
-        } else {
-            records = reconRecordRepository
-                    .findByReconDateAndResolved(reconDate, false);
-        }
-
-        return records.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    public ReconSummaryResponse getSummary(LocalDate reconDate) {
+        return getSummary(reconDate, null);
     }
 
-    // ─────────────────────────────────────────
-    // Export CSV report
-    // ─────────────────────────────────────────
-    public byte[] exportCsv(LocalDate reconDate) {
+    // Get mismatches filtered by merchant
+    public List<MismatchResponse> getMismatches(LocalDate reconDate, MismatchType type, String merchantId) {
+        List<ReconRecord> records;
+        UUID mId = (merchantId != null && !merchantId.isEmpty()) ? UUID.fromString(merchantId) : null;
+
+        if (mId != null && type != null) {
+            records = reconRecordRepository.findByReconDateAndMismatchTypeAndMerchantId(reconDate, type, mId);
+        } else if (mId != null) {
+            records = reconRecordRepository.findByReconDateAndMerchantIdAndResolved(reconDate, mId, false);
+        } else if (type != null) {
+            records = reconRecordRepository.findByReconDateAndMismatchType(reconDate, type);
+        } else {
+            records = reconRecordRepository.findByReconDateAndResolved(reconDate, false);
+        }
+
+        return records.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    public List<MismatchResponse> getMismatches(LocalDate reconDate, MismatchType type) {
+        return getMismatches(reconDate, type, null);
+    }
+
+    // Export CSV
+    public byte[] exportCsv(LocalDate reconDate, String merchantId) {
         return csvReportGenerator.generateReport(reconDate);
     }
 
-    // ─────────────────────────────────────────
-    // Helper — map to response
-    // ─────────────────────────────────────────
+    public byte[] exportCsv(LocalDate reconDate) {
+        return exportCsv(reconDate, null);
+    }
+
+    // Map to response
     private MismatchResponse mapToResponse(ReconRecord record) {
         MismatchResponse response = new MismatchResponse();
         response.setId(record.getId());

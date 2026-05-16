@@ -44,11 +44,20 @@ const retryHandler = {
         }
 
         // Retry dispatch
+        let payload;
+        try {
+          payload = typeof webhook.payload === 'string' 
+            ? JSON.parse(webhook.payload) 
+            : webhook.payload;
+        } catch (e) {
+          payload = {};
+        }
+        
         await webhookDispatcher.dispatch(
           webhook.id,
           webhook.merchant_id,
           callbackUrl,
-          JSON.parse(webhook.payload)
+          payload
         );
       }
 

@@ -8,10 +8,11 @@ const WebhookLog = {
       INSERT INTO webhook_logs 
         (payment_id, merchant_id, event_type, payload, attempt_count, status)
       VALUES 
-        ($1, $2, $3, $4, 0, 'PENDING')
+        ($1::uuid, $2::uuid, $3, $4, 0, 'PENDING')
       RETURNING *
     `;
-    const values = [paymentId, merchantId, eventType, JSON.stringify(payload)];
+    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const values = [paymentId, merchantId, eventType, payloadStr];
     const result = await pool.query(query, values);
     return result.rows[0];
   },

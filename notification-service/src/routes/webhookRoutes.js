@@ -83,18 +83,35 @@ router.get('/:id', async (req, res) => {
 
 // POST /v1/webhooks/:id/retry
 router.post('/:id/retry', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `UPDATE webhook_logs 
-       SET status = 'PENDING', attempt_count = 0, next_retry_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Webhook log not found' });
-    res.json({ message: 'Retry scheduled', log: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to schedule retry' });
-  }
-});
+    try {
+      // Check current status first
+      const check = await pool.query(
+        'SELECT status FROM webhook_logs WHERE id = $1', [req.params.id]
+      );
+  
+      if (check.rows.length === 0) {
+        return res.status(404).json({ error: 'Webhook log not found' });
+      }
+  
+      // Block retry if already delivered
+      if (check.rows[0].status === 'DELIVERED') {
+        return res.status(400).json({ 
+          error: 'Webhook already delivered. Retry not needed.' 
+        });
+      }
+  
+      // Only allow retry for FAILED or PENDING
+      const result = await pool.query(
+        `UPDATE webhook_logs 
+         SET status = 'PENDING', attempt_count = 0, next_retry_at = NOW()
+         WHERE id = $1 RETURNING *`,
+        [req.params.id]
+      );
+  
+      res.json({ message: 'Retry scheduled', log: result.rows[0] });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to schedule retry' });
+    }
+  });
 
 module.exports = router;

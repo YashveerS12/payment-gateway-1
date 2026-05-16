@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -21,27 +22,24 @@ public class ReconProcessor {
     private final ReconRecordRepository reconRecordRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    // ─────────────────────────────────────────
-    // Main reconciliation logic
-    // Compares payments table vs mock ledger
-    // ─────────────────────────────────────────
     public void process(LocalDate reconDate) {
         log.info("Starting reconciliation for date: {}", reconDate);
+
+        // DELETE existing records for this date first
         jdbcTemplate.update(
                 "DELETE FROM recon_records WHERE recon_date = ?", reconDate
         );
 
-        // Step 1 — Get all payments for the date from DB
+        // Fetch payments with merchant_id
         List<Map<String, Object>> payments = jdbcTemplate.queryForList("""
-    SELECT id, amount, status::text, bank_ref_id
-    FROM payments
-    WHERE DATE(created_at) = ?
-    AND status::text IN ('SUCCESS', 'FAILED')
-""", reconDate);
+            SELECT id, amount, status::text, bank_ref_id, merchant_id
+            FROM payments
+            WHERE DATE(created_at) = ?
+            AND status::text IN ('SUCCESS', 'FAILED')
+        """, reconDate);
 
         log.info("Found {} payments for date: {}", payments.size(), reconDate);
 
-        // Step 2 — Process each payment
         for (Map<String, Object> payment : payments) {
             processPayment(payment, reconDate);
         }
@@ -49,9 +47,6 @@ public class ReconProcessor {
         log.info("Reconciliation complete for date: {}", reconDate);
     }
 
-    // ─────────────────────────────────────────
-    // Process individual payment
-    // ─────────────────────────────────────────
     private void processPayment(Map<String, Object> payment, LocalDate reconDate) {
         String paymentId   = payment.get("id").toString();
         BigDecimal amount  = (BigDecimal) payment.get("amount");
@@ -59,104 +54,89 @@ public class ReconProcessor {
         String bankRefId   = payment.get("bank_ref_id") != null
                 ? payment.get("bank_ref_id").toString() : null;
 
-        // Step 3 — Simulate ledger check
-        // In real world — call bank API or read bank CSV file
+        // Get merchantId from payment
+        UUID merchantId = null;
+        if (payment.get("merchant_id") != null) {
+            merchantId = UUID.fromString(payment.get("merchant_id").toString());
+        }
+
         LedgerEntry ledgerEntry = getMockLedgerEntry(paymentId, amount, bankRefId);
 
-        // Step 4 — Compare and detect mismatches
         if (ledgerEntry == null) {
-            // Payment in DB but not in bank ledger
             saveMismatch(reconDate, paymentId, amount, null,
                     MismatchType.MISSING_IN_LEDGER,
-                    "Payment exists in DB but not in bank ledger");
+                    "Payment exists in DB but not in bank ledger",
+                    merchantId);
 
         } else if (ledgerEntry.amount.compareTo(amount) != 0) {
-            // Amount mismatch
             saveMismatch(reconDate, paymentId, amount, ledgerEntry.amount,
                     MismatchType.AMOUNT_MISMATCH,
-                    "DB amount: " + amount + " | Ledger amount: " + ledgerEntry.amount);
+                    "DB amount: " + amount + " | Ledger amount: " + ledgerEntry.amount,
+                    merchantId);
 
         } else if (!status.equals(ledgerEntry.status)) {
-            // Status mismatch
             saveMismatch(reconDate, paymentId, amount, ledgerEntry.amount,
                     MismatchType.STATUS_MISMATCH,
-                    "DB status: " + status + " | Ledger status: " + ledgerEntry.status);
+                    "DB status: " + status + " | Ledger status: " + ledgerEntry.status,
+                    merchantId);
 
         } else {
-            // All good — save matched record
-            saveMatched(reconDate, paymentId, amount);
+            saveMatched(reconDate, paymentId, amount, merchantId);
         }
     }
 
-    // ─────────────────────────────────────────
-    // Mock ledger — simulates bank response
-    // In real world — read from bank CSV or API
-    // ─────────────────────────────────────────
     private LedgerEntry getMockLedgerEntry(String paymentId,
                                            BigDecimal amount,
                                            String bankRefId) {
-        // Simulate 95% match rate
         double random = Math.random();
 
         if (random < 0.02) {
-            // 2% — missing in ledger
             return null;
         } else if (random < 0.04) {
-            // 2% — amount mismatch
-            return new LedgerEntry(
-                    amount.subtract(new BigDecimal("50")),
-                    "SUCCESS"
-            );
+            return new LedgerEntry(amount.subtract(new BigDecimal("50")), "SUCCESS");
         } else if (random < 0.05) {
-            // 1% — status mismatch
             return new LedgerEntry(amount, "FAILED");
         } else {
-            // 95% — perfect match
             return new LedgerEntry(amount, "SUCCESS");
         }
     }
 
-    // ─────────────────────────────────────────
-    // Save mismatch record
-    // ─────────────────────────────────────────
     private void saveMismatch(LocalDate reconDate,
                               String paymentId,
                               BigDecimal transactionAmount,
                               BigDecimal ledgerAmount,
                               MismatchType mismatchType,
-                              String description) {
+                              String description,
+                              UUID merchantId) {
         ReconRecord record = new ReconRecord();
         record.setReconDate(reconDate);
-        record.setPaymentId(java.util.UUID.fromString(paymentId));
+        record.setPaymentId(UUID.fromString(paymentId));
         record.setTransactionAmount(transactionAmount);
         record.setLedgerAmount(ledgerAmount);
         record.setMismatchType(mismatchType);
         record.setMismatchDescription(description);
         record.setResolved(false);
+        record.setMerchantId(merchantId); // ← NEW
 
         reconRecordRepository.save(record);
         log.info("Mismatch saved: {} | {}", mismatchType, paymentId);
     }
 
-    // ─────────────────────────────────────────
-    // Save matched record
-    // ─────────────────────────────────────────
     private void saveMatched(LocalDate reconDate,
                              String paymentId,
-                             BigDecimal amount) {
+                             BigDecimal amount,
+                             UUID merchantId) {
         ReconRecord record = new ReconRecord();
         record.setReconDate(reconDate);
-        record.setPaymentId(java.util.UUID.fromString(paymentId));
+        record.setPaymentId(UUID.fromString(paymentId));
         record.setTransactionAmount(amount);
         record.setLedgerAmount(amount);
         record.setResolved(true);
+        record.setMerchantId(merchantId); // ← NEW
 
         reconRecordRepository.save(record);
     }
 
-    // ─────────────────────────────────────────
-    // Inner class — Ledger entry
-    // ─────────────────────────────────────────
     private static class LedgerEntry {
         BigDecimal amount;
         String status;

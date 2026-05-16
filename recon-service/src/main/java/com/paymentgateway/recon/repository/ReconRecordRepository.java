@@ -13,32 +13,39 @@ import java.util.UUID;
 @Repository
 public interface ReconRecordRepository extends JpaRepository<ReconRecord, UUID> {
 
-    // Get all mismatches for a date
+    // ─── Existing methods ─────────────────────
     List<ReconRecord> findByReconDate(LocalDate reconDate);
 
-    // Get mismatches by date and type
     List<ReconRecord> findByReconDateAndMismatchType(
-            LocalDate reconDate,
-            MismatchType mismatchType
-    );
+            LocalDate reconDate, MismatchType mismatchType);
 
-    // Get unresolved mismatches
     List<ReconRecord> findByReconDateAndResolved(
-            LocalDate reconDate,
-            Boolean resolved
-    );
+            LocalDate reconDate, Boolean resolved);
 
-    // Count total mismatches for a date
     long countByReconDate(LocalDate reconDate);
 
-    // Count unresolved mismatches
     long countByReconDateAndResolved(LocalDate reconDate, Boolean resolved);
 
-    // Summary query — total matched vs mismatched
     @Query("""
         SELECT COUNT(r) FROM ReconRecord r
         WHERE r.reconDate = :reconDate
         AND r.mismatchType IS NULL
     """)
     long countMatchedByDate(LocalDate reconDate);
+
+    // ─── Merchant filtered methods ─────────────
+    List<ReconRecord> findByReconDateAndMerchantId(
+            LocalDate reconDate, UUID merchantId);
+
+    List<ReconRecord> findByReconDateAndMerchantIdAndResolved(
+            LocalDate reconDate, UUID merchantId, Boolean resolved);
+
+    List<ReconRecord> findByReconDateAndMismatchTypeAndMerchantId(
+            LocalDate reconDate, MismatchType mismatchType, UUID merchantId);
+
+    long countByReconDateAndMerchantId(
+            LocalDate reconDate, UUID merchantId);
+
+    long countByReconDateAndMerchantIdAndResolved(
+            LocalDate reconDate, UUID merchantId, Boolean resolved);
 }

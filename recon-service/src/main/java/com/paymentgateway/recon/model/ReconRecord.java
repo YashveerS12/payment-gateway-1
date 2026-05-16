@@ -24,6 +24,10 @@ public class ReconRecord {
     @Column(name = "payment_id")
     private UUID paymentId;
 
+    // ← NEW — merchant who owns this recon record
+    @Column(name = "merchant_id")
+    private UUID merchantId;
+
     @Column(name = "ledger_amount", precision = 15, scale = 2)
     private BigDecimal ledgerAmount;
 

@@ -83,16 +83,17 @@ const webhookDispatcher = {
   // ─────────────────────────────────────────
   async sendWebhook(eventType, paymentData) {
     const { merchantId, paymentId } = paymentData;
-
-    // Get merchant callback URL
+  
+    // Add this log to see what's coming
+    console.log('sendWebhook:', { paymentId, merchantId });
+  
     const callbackUrl = await WebhookLog.getMerchantCallbackUrl(merchantId);
-
+  
     if (!callbackUrl) {
       console.log(`No callback URL for merchant: ${merchantId}`);
       return;
     }
-
-    // Build webhook payload
+  
     const payload = {
       eventType,
       paymentId,
@@ -100,17 +101,20 @@ const webhookDispatcher = {
       data: paymentData,
       timestamp: new Date().toISOString()
     };
-
-    // Save to DB first
-    const log = await WebhookLog.create({
-      paymentId,
-      merchantId,
-      eventType,
-      payload
-    });
-
-    // Dispatch immediately
-    await this.dispatch(log.id, merchantId, callbackUrl, payload);
+  
+    try {
+      const log = await WebhookLog.create({
+        paymentId,
+        merchantId,
+        eventType,
+        payload
+      });
+      await this.dispatch(log.id, merchantId, callbackUrl, payload);
+    } catch (err) {
+      console.error('Failed to save webhook log:', err.message);
+      // Still try to dispatch even if DB save fails
+      await this.dispatch(null, merchantId, callbackUrl, payload);
+    }
   }
 };
 
