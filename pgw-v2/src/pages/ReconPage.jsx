@@ -1,39 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { triggerRecon, getReconSummary, getReconMismatches, exportReconCsv } from "../services/api";
-
-const s = {
-  card: { background: "#0f1117", border: "1px solid #1e2235", borderRadius: "8px", padding: "24px", marginBottom: "20px" },
-  cardTitle: { fontSize: "12px", color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "20px" },
-  statCard: { background: "#0f1117", border: "1px solid #1e2235", borderRadius: "8px", padding: "20px" },
-  statLabel: { fontSize: "11px", color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "10px" },
-  statValue: (color) => ({ fontSize: "26px", fontWeight: "600", color: color || "#e2e8f0", fontFamily: "monospace" }),
-  topRow: { display: "flex", gap: "12px", alignItems: "center", marginBottom: "24px", flexWrap: "wrap" },
-  input: { background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "10px 12px", fontSize: "13px", color: "#e2e8f0", outline: "none", fontFamily: "inherit" },
-  select: { background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "8px 12px", fontSize: "12px", color: "#e2e8f0", outline: "none", fontFamily: "inherit" },
-  btn: (primary) => ({ padding: "10px 18px", borderRadius: "4px", fontSize: "12px", fontWeight: "600", cursor: "pointer", border: primary ? "none" : "1px solid #1e2235", background: primary ? "#2563eb" : "transparent", color: primary ? "white" : "#64748b", fontFamily: "inherit", letterSpacing: "0.08em", textTransform: "uppercase" }),
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { fontSize: "10px", color: "#475569", textAlign: "left", padding: "8px 0", borderBottom: "1px solid #1e2235", letterSpacing: "0.1em", textTransform: "uppercase" },
-  td: { fontSize: "12px", color: "#94a3b8", padding: "12px 0", borderBottom: "1px solid #0f1117" },
-  badge: (type) => {
-    const c = {
-      AMOUNT_MISMATCH: { background: "#451a0330", color: "#fbbf24" },
-      MISSING_IN_LEDGER: { background: "#4c1d2430", color: "#f87171" },
-      MISSING_IN_DB: { background: "#4c1d2430", color: "#f87171" },
-      STATUS_MISMATCH: { background: "#1e3a5f30", color: "#60a5fa" },
-      DUPLICATE: { background: "#2d1b6930", color: "#a78bfa" },
-      RESOLVED: { background: "#064e3b30", color: "#34d399" },
-      UNRESOLVED: { background: "#4c1d2430", color: "#f87171" },
-      Clean: { background: "#064e3b30", color: "#34d399" },
-      Review: { background: "#451a0330", color: "#fbbf24" },
-    };
-    return { display: "inline-block", padding: "3px 10px", borderRadius: "3px", fontSize: "10px", fontWeight: "600", letterSpacing: "0.05em", ...(c[type] || { background: "#1e2235", color: "#94a3b8" }) };
-  },
-  success: { background: "#064e3b20", border: "1px solid #065f46", borderRadius: "4px", padding: "12px", marginBottom: "16px", fontSize: "12px", color: "#34d399" },
-  error: { background: "#4c1d2420", border: "1px solid #7f1d1d", borderRadius: "4px", padding: "12px", marginBottom: "16px", fontSize: "12px", color: "#f87171" },
-  empty: { textAlign: "center", color: "#475569", padding: "32px", fontSize: "13px" },
-};
+import {
+  c, radius, Icon, Card, Button, Input, Select, Badge,
+  MetricCard, EmptyState, reconBadge,
+} from "../ui/theme";
 
 export default function ReconPage() {
   const { token } = useAuth();
@@ -57,9 +28,15 @@ export default function ReconPage() {
       try {
         const s2 = await getReconSummary(token, dateStr);
         if (s2.totalTransactions > 0) {
-          history.push({ date: dateStr, total: s2.totalTransactions, matched: s2.matched, mismatched: s2.mismatched, status: s2.mismatched === 0 ? "Clean" : "Review" });
+          history.push({
+            date: dateStr,
+            total: s2.totalTransactions,
+            matched: s2.matched,
+            mismatched: s2.mismatched,
+            status: s2.mismatched === 0 ? "Clean" : "Review",
+          });
         }
-      } catch (e) { }
+      } catch (e) {}
     }
     setHistoryData(history);
     setHistoryLoading(false);
@@ -90,16 +67,18 @@ export default function ReconPage() {
     setLoading(true); setMsg(""); setError("");
     try {
       await triggerRecon(token, date);
-      setMsg(`Recon triggered for ${date}. Fetching results...`);
+      setMsg(`Recon triggered for ${date}. Fetching results…`);
       setTimeout(async () => {
         try {
           const s2 = await getReconSummary(token, date);
           setSummary(s2);
           const m = await getReconMismatches(token, date, typeFilter);
           setMismatches(m);
-          setMsg(`✅ Recon complete for ${date}!`);
+          setMsg(`Recon complete for ${date}.`);
           fetchHistory();
-        } catch (e) { setMsg(`Recon triggered. Results pending...`); }
+        } catch (e) {
+          setMsg("Recon triggered. Results pending…");
+        }
       }, 2000);
     } catch (e) {
       setError("Failed to trigger recon: " + e.message);
@@ -116,8 +95,10 @@ export default function ReconPage() {
   const handleFilterChange = async (type) => {
     setTypeFilter(type);
     if (summary) {
-      try { const m = await getReconMismatches(token, date, type); setMismatches(m); }
-      catch (e) { }
+      try {
+        const m = await getReconMismatches(token, date, type);
+        setMismatches(m);
+      } catch (e) {}
     }
   };
 
@@ -128,107 +109,232 @@ export default function ReconPage() {
 
   return (
     <div>
-      <div style={s.topRow}>
-        <input style={s.input} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        <button style={s.btn(true)} onClick={handleTrigger} disabled={loading}>{loading ? "Running..." : "▶ Run recon"}</button>
-        <button style={s.btn(false)} onClick={() => handleFetch(date)} disabled={loading}>↻ Fetch results</button>
-        <button style={s.btn(false)} onClick={handleExport}>↓ Export CSV</button>
+      {/* Action row */}
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "16px", flexWrap: "wrap" }}>
+        <div style={{ position: "relative" }}>
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "160px" }} />
+        </div>
+        <Button variant="primary" size="md" icon={<Icon.Play />}
+                onClick={handleTrigger} disabled={loading} loading={loading}>
+          {loading ? "Running" : "Run recon"}
+        </Button>
+        <Button variant="light" size="md" icon={<Icon.Refresh />}
+                onClick={() => handleFetch(date)} disabled={loading}>
+          Fetch results
+        </Button>
+        <Button variant="light" size="md" icon={<Icon.Download />} onClick={handleExport}>
+          Export CSV
+        </Button>
       </div>
 
-      {msg && <div style={s.success}>{msg}</div>}
-      {error && <div style={s.error}>❌ {error}</div>}
-
-      <div style={s.statsGrid}>
-        {[
-          { label: "Total", value: summary ? summary.totalTransactions.toLocaleString() : "—" },
-          { label: "Matched", value: summary ? summary.matched.toLocaleString() : "—", color: "#34d399" },
-          { label: "Mismatched", value: summary ? summary.mismatched : "—", color: summary?.mismatched > 0 ? "#f87171" : "#34d399" },
-          { label: "Unresolved", value: summary ? summary.unresolved : "—", color: summary?.unresolved > 0 ? "#fbbf24" : "#34d399" },
-        ].map(item => (
-          <div key={item.label} style={s.statCard}>
-            <div style={s.statLabel}>{item.label}</div>
-            <div style={s.statValue(item.color)}>{item.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {summary && (
-        <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-          <span style={{ fontSize: "12px", color: "#64748b" }}>Overall status:</span>
-          <span style={{ ...s.badge(summary.mismatched === 0 ? "Clean" : "Review"), fontSize: "12px", padding: "4px 14px" }}>{summary.status}</span>
+      {/* Status banners */}
+      {msg && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "11px 14px",
+          background: c.successBg, border: `1px solid ${c.successBorder}`,
+          borderRadius: radius.lg, marginBottom: "16px",
+        }}>
+          <Icon.Check size={15} />
+          <span style={{ flex: 1, fontSize: "12.5px", color: c.successText, fontWeight: 500 }}>{msg}</span>
+        </div>
+      )}
+      {error && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "11px 14px",
+          background: c.dangerBg, border: "1px solid #FCA5A5",
+          borderRadius: radius.lg, marginBottom: "16px",
+        }}>
+          <Icon.Alert size={15} />
+          <span style={{ flex: 1, fontSize: "12.5px", color: c.dangerText }}>{error}</span>
         </div>
       )}
 
-      <div style={s.card}>
-        <div style={s.cardTitle}>
-          <span>Mismatch records {mismatches.length > 0 ? `(${mismatches.length})` : ""}</span>
-          <select style={s.select} value={typeFilter} onChange={(e) => handleFilterChange(e.target.value)}>
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+        <MetricCard
+          label="Total records"
+          value={summary ? summary.totalTransactions.toLocaleString() : "—"}
+          sub={<><Icon.Database size={12} />{date}</>}
+        />
+        <MetricCard
+          label="Matched"
+          value={summary ? summary.matched.toLocaleString() : "—"}
+          valueColor={summary ? c.successText : c.text}
+          accent={summary ? c.successDeep : null}
+          sub={summary && summary.totalTransactions > 0
+                ? <span style={{ color: c.successText }}>{((summary.matched / summary.totalTransactions) * 100).toFixed(1)}% match rate</span>
+                : "—"}
+        />
+        <MetricCard
+          label="Mismatched"
+          value={summary ? summary.mismatched : "—"}
+          valueColor={summary?.mismatched > 0 ? c.warningText : (summary ? c.successText : c.text)}
+          accent={summary?.mismatched > 0 ? c.warningDeep : null}
+          sub={summary?.mismatched > 0 ? <span style={{ color: c.warningText }}>Amount or status diff</span> : "—"}
+        />
+        <MetricCard
+          label="Unresolved"
+          value={summary ? summary.unresolved : "—"}
+          valueColor={summary?.unresolved > 0 ? c.dangerText : (summary ? c.successText : c.text)}
+          accent={summary?.unresolved > 0 ? c.dangerDeep : null}
+          sub={summary?.unresolved > 0 ? <span style={{ color: c.dangerText }}>Need manual review</span> : "—"}
+        />
+      </div>
+
+      {/* Overall status */}
+      {summary && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: "10px",
+          marginBottom: "16px", padding: "10px 14px",
+          background: c.surface, border: `1px solid ${c.border}`, borderRadius: radius.lg,
+        }}>
+          <span style={{ fontSize: "12.5px", color: c.textDim }}>Overall status</span>
+          <Badge kind={summary.mismatched === 0 ? "success" : "warning"}>
+            {summary.status}
+          </Badge>
+          <span style={{ fontSize: "12px", color: c.textDim, marginLeft: "auto" }}>
+            Date: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: c.text }}>{date}</span>
+          </span>
+        </div>
+      )}
+
+      {/* Mismatch records */}
+      <Card padded={false} style={{ marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "14px 20px", borderBottom: `1px solid ${c.divider}` }}>
+          <div>
+            <div style={{ fontSize: "13.5px", fontWeight: 500, color: c.text }}>
+              Mismatch records {mismatches.length > 0 && <span style={{ color: c.textDim, fontWeight: 400 }}>· {mismatches.length}</span>}
+            </div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginTop: "2px" }}>
+              Discrepancies between your ledger and bank settlements
+            </div>
+          </div>
+          <Select value={typeFilter} onChange={(e) => handleFilterChange(e.target.value)} style={{ width: "180px", padding: "7px 32px 7px 12px", fontSize: "12.5px" }}>
             <option value="">All types</option>
             <option value="AMOUNT_MISMATCH">Amount mismatch</option>
             <option value="MISSING_IN_LEDGER">Missing in ledger</option>
             <option value="MISSING_IN_DB">Missing in DB</option>
             <option value="STATUS_MISMATCH">Status mismatch</option>
             <option value="DUPLICATE">Duplicate</option>
-          </select>
+          </Select>
         </div>
-        {mismatches.length === 0 ? (
-          <div style={s.empty}>{summary ? summary.mismatched === 0 ? "✅ No mismatches!" : "No mismatches for filter" : "Run recon first"}</div>
-        ) : (
-          <table style={s.table}>
-            <thead><tr>
-              <th style={s.th}>Payment ID</th><th style={s.th}>DB Amount</th>
-              <th style={s.th}>Ledger Amount</th><th style={s.th}>Mismatch type</th>
-              <th style={s.th}>Description</th><th style={s.th}>Resolved</th>
-            </tr></thead>
-            <tbody>
-              {mismatches.map(m => (
-                <tr key={m.id}>
-                  <td style={{ ...s.td, fontFamily: "monospace", fontSize: "11px", color: "#60a5fa" }}>{m.paymentId?.substring(0, 8)}...</td>
-                  <td style={s.td}>₹{m.transactionAmount?.toLocaleString() || "—"}</td>
-                  <td style={s.td}>{m.ledgerAmount ? `₹${m.ledgerAmount.toLocaleString()}` : "—"}</td>
-                  <td style={s.td}><span style={s.badge(m.mismatchType)}>{m.mismatchType?.replace(/_/g, " ")}</span></td>
-                  <td style={{ ...s.td, fontSize: "11px", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.mismatchDescription || "—"}</td>
-                  <td style={s.td}><span style={s.badge(m.resolved ? "RESOLVED" : "UNRESOLVED")}>{m.resolved ? "Yes" : "No"}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
 
-      <div style={s.card}>
-        <div style={s.cardTitle}>
-          <span>Recon history (last 3 days)</span>
-          <button style={{ ...s.btn(false), padding: "4px 12px", fontSize: "11px" }} onClick={fetchHistory} disabled={historyLoading}>
-            {historyLoading ? "Loading..." : "↻ Refresh"}
-          </button>
-        </div>
-        {historyLoading ? (
-          <div style={s.empty}>Loading history...</div>
-        ) : historyData.length === 0 ? (
-          <div style={s.empty}>No recon history. Run recon for any date.</div>
+        {mismatches.length === 0 ? (
+          <EmptyState
+            icon={<Icon.File size={20} />}
+            title={summary ? (summary.mismatched === 0 ? "All clear" : "No mismatches for filter") : "Run recon first"}
+            description={summary
+              ? (summary.mismatched === 0
+                  ? "Every record in your ledger matched the bank settlement perfectly."
+                  : "Try removing the filter to see all mismatch records.")
+              : "Pick a date and click 'Run recon' to begin reconciliation."}
+          />
         ) : (
-          <table style={s.table}>
-            <thead><tr>
-              <th style={s.th}>Date</th><th style={s.th}>Total</th>
-              <th style={s.th}>Matched</th><th style={s.th}>Mismatched</th>
-              <th style={s.th}>Status</th>
-            </tr></thead>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Payment ID", "DB Amount", "Ledger Amount", "Mismatch type", "Description", "Resolved"].map(h => (
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
             <tbody>
-              {historyData.map(h => (
-                <tr key={h.date} style={{ cursor: "pointer", background: h.date === date ? "#1e2235" : "transparent" }}
-                  onClick={() => handleHistoryClick(h.date)}>
-                  <td style={{ ...s.td, color: "#60a5fa" }}>{h.date}</td>
-                  <td style={s.td}>{h.total.toLocaleString()}</td>
-                  <td style={{ ...s.td, color: "#34d399" }}>{h.matched.toLocaleString()}</td>
-                  <td style={{ ...s.td, color: h.mismatched > 0 ? "#f87171" : "#34d399" }}>{h.mismatched}</td>
-                  <td style={s.td}><span style={s.badge(h.status)}>{h.status}</span></td>
-                </tr>
-              ))}
+              {mismatches.map(m => {
+                const mb = reconBadge(m.mismatchType);
+                return (
+                  <tr key={m.id}>
+                    <td style={tdMono}>
+                      <span style={{ color: c.indigo }}>{m.paymentId?.substring(0, 8)}…</span>
+                    </td>
+                    <td style={td}>{m.transactionAmount ? `₹${m.transactionAmount.toLocaleString("en-IN")}` : "—"}</td>
+                    <td style={td}>{m.ledgerAmount ? `₹${m.ledgerAmount.toLocaleString("en-IN")}` : "—"}</td>
+                    <td style={td}><Badge kind={mb.kind}>{mb.label}</Badge></td>
+                    <td style={{ ...td, fontSize: "12px", maxWidth: "240px", overflow: "hidden",
+                                  textOverflow: "ellipsis", whiteSpace: "nowrap", color: c.textMuted }}
+                        title={m.mismatchDescription}>
+                      {m.mismatchDescription || "—"}
+                    </td>
+                    <td style={td}>
+                      <Badge kind={m.resolved ? "success" : "danger"}>
+                        {m.resolved ? "Yes" : "No"}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
-      </div>
+      </Card>
+
+      {/* Recon history */}
+      <Card padded={false}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "14px 20px", borderBottom: `1px solid ${c.divider}` }}>
+          <div>
+            <div style={{ fontSize: "13.5px", fontWeight: 500, color: c.text }}>Recon history</div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginTop: "2px" }}>Last 3 days · click a row to view that date</div>
+          </div>
+          <Button variant="light" size="sm" icon={<Icon.Refresh />}
+                  onClick={fetchHistory} disabled={historyLoading}>
+            {historyLoading ? "Loading" : "Refresh"}
+          </Button>
+        </div>
+
+        {historyLoading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: c.textDim, fontSize: "13px" }}>
+            Loading history…
+          </div>
+        ) : historyData.length === 0 ? (
+          <EmptyState
+            icon={<Icon.Clock size={20} />}
+            title="No recon history yet"
+            description="Run recon for any past date to start building your history."
+          />
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                {["Date", "Total", "Matched", "Mismatched", "Status"].map(h => (
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {historyData.map(h => {
+                const isActive = h.date === date;
+                return (
+                  <tr key={h.date}
+                    style={{ cursor: "pointer", background: isActive ? c.indigoBg : "transparent", transition: "background 0.1s" }}
+                    onClick={() => handleHistoryClick(h.date)}
+                    onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = c.surfaceSubtle; }}
+                    onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+                    <td style={{ ...td, color: c.indigo, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>{h.date}</td>
+                    <td style={td}>{h.total.toLocaleString()}</td>
+                    <td style={{ ...td, color: c.successText }}>{h.matched.toLocaleString()}</td>
+                    <td style={{ ...td, color: h.mismatched > 0 ? c.dangerText : c.successText }}>{h.mismatched}</td>
+                    <td style={td}><Badge kind={reconBadge(h.status).kind}>{h.status}</Badge></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </div>
   );
 }
+
+const th = {
+  fontSize: "11px", fontWeight: 500, color: c.textDim, textTransform: "uppercase",
+  letterSpacing: "0.04em", textAlign: "left", padding: "10px 20px",
+  borderBottom: `1px solid ${c.border}`, background: c.surfaceSubtle,
+};
+const td = {
+  padding: "12px 20px", fontSize: "13px", color: c.text,
+  borderBottom: `1px solid ${c.divider}`,
+};
+const tdMono = {
+  ...td, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px",
+};

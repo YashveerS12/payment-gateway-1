@@ -1,33 +1,21 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getWebhookLogs, retryWebhook } from "../services/api";
+import {
+  c, radius, Icon, Card, Button, Input, Select, Badge,
+  MetricCard, EmptyState, Toast, webhookBadge,
+} from "../ui/theme";
 
-const s = {
-  card: { background: "#0f1117", border: "1px solid #1e2235", borderRadius: "8px", padding: "24px", marginBottom: "20px" },
-  cardTitle: { fontSize: "12px", color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  statsGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "20px" },
-  statCard: { background: "#0f1117", border: "1px solid #1e2235", borderRadius: "8px", padding: "20px" },
-  statLabel: { fontSize: "11px", color: "#475569", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "10px" },
-  statValue: (color) => ({ fontSize: "26px", fontWeight: "600", color: color || "#e2e8f0", fontFamily: "monospace" }),
-  input: { width: "100%", background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "10px 12px", fontSize: "13px", color: "#e2e8f0", outline: "none", marginBottom: "14px", fontFamily: "inherit", boxSizing: "border-box" },
-  label: { fontSize: "11px", color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px", display: "block" },
-  select: { background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "8px 12px", fontSize: "12px", color: "#e2e8f0", outline: "none", fontFamily: "inherit" },
-  btn: (primary) => ({ padding: "10px 18px", borderRadius: "4px", fontSize: "12px", fontWeight: "600", cursor: "pointer", border: primary ? "none" : "1px solid #1e2235", background: primary ? "#2563eb" : "transparent", color: primary ? "white" : "#64748b", fontFamily: "inherit", letterSpacing: "0.08em", textTransform: "uppercase" }),
-  badge: (type) => {
-    const c = { DELIVERED: { background: "#064e3b30", color: "#34d399" }, FAILED: { background: "#4c1d2430", color: "#f87171" }, PENDING: { background: "#451a0330", color: "#fbbf24" } };
-    return { display: "inline-block", padding: "3px 10px", borderRadius: "3px", fontSize: "10px", fontWeight: "600", letterSpacing: "0.08em", ...(c[type] || c.PENDING) };
-  },
-  success: { background: "#064e3b20", border: "1px solid #065f46", borderRadius: "4px", padding: "12px", marginTop: "12px", fontSize: "12px", color: "#34d399" },
-  error: { background: "#4c1d2420", border: "1px solid #7f1d1d", borderRadius: "4px", padding: "12px", marginTop: "12px", fontSize: "12px", color: "#f87171" },
-  timelineItem: { display: "flex", gap: "16px", alignItems: "flex-start", padding: "16px 0", borderBottom: "1px solid #1e2235" },
-  dot: (color) => ({ width: "8px", height: "8px", borderRadius: "50%", background: color, marginTop: "4px", flexShrink: 0 }),
-  empty: { textAlign: "center", color: "#475569", padding: "32px", fontSize: "13px" },
-  pagination: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", fontSize: "12px", color: "#475569" },
-  toast: { position: "fixed", bottom: "24px", right: "24px", background: "#064e3b", border: "1px solid #065f46", borderRadius: "6px", padding: "12px 20px", fontSize: "12px", color: "#34d399", zIndex: 9999, letterSpacing: "0.05em" },
-  idBadge: { fontSize: "10px", fontFamily: "monospace", color: "#60a5fa", cursor: "copy", padding: "4px 8px", borderRadius: "4px", border: "1px solid #1e2235", background: "#0a0b0f", flexShrink: 0 },
-};
-
-const dotColors = { DELIVERED: "#34d399", FAILED: "#f87171", PENDING: "#fbbf24" };
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(dateStr).toLocaleDateString("en-IN");
+}
 
 export default function WebhooksPage() {
   const { token } = useAuth();
@@ -44,18 +32,15 @@ export default function WebhooksPage() {
   const [retryError, setRetryError] = useState("");
   const [toast, setToast] = useState("");
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2500);
-  };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
   const copyAndSetId = (id) => {
     navigator.clipboard.writeText(id).then(() => {
       setRetryId(id);
-      showToast("✅ Webhook ID copied & set for retry!");
+      showToast("Webhook ID copied & set for retry");
     }).catch(() => {
       setRetryId(id);
-      showToast("✅ Webhook ID set for retry!");
+      showToast("Webhook ID set for retry");
     });
   };
 
@@ -84,155 +69,260 @@ export default function WebhooksPage() {
 
   const handleRetry = async () => {
     if (!retryId.trim()) { setRetryError("Enter a webhook log ID"); return; }
-  
-    // Check if this log is already delivered
     const log = logs.find(l => l.id === retryId.trim());
     if (log && log.status === "DELIVERED") {
-      setRetryError("❌ This webhook was already delivered. No retry needed.");
+      setRetryError("This webhook was already delivered. No retry needed.");
       return;
     }
-  
     setRetryResult(""); setRetryError("");
     try {
       await retryWebhook(token, retryId.trim());
-      setRetryResult(`✅ Retry triggered for: ${retryId}`);
+      setRetryResult(`Retry triggered for: ${retryId}`);
       setRetryId("");
       fetchLogs();
     } catch (e) {
-      setRetryError("❌ " + e.message);
+      setRetryError(e.message);
     }
   };
-  const timeAgo = (dateStr) => {
-    if (!dateStr) return "—";
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return new Date(dateStr).toLocaleDateString();
-  };
+
+  const retryPolicy = [
+    { attempt: "Attempt 1", delay: "Immediate", desc: "First delivery on payment event" },
+    { attempt: "Attempt 2", delay: "+30 sec",   desc: "First retry after failure" },
+    { attempt: "Attempt 3", delay: "+60 sec",   desc: "Second retry" },
+    { attempt: "Attempt 4", delay: "+120 sec",  desc: "Final retry — marked FAILED permanently" },
+  ];
 
   return (
     <div>
-      {toast && <div style={s.toast}>{toast}</div>}
+      {toast && <Toast kind="success">{toast}</Toast>}
 
-      <div style={s.statsGrid}>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Delivered</div>
-          <div style={s.statValue("#34d399")}>{stats.delivered}</div>
-        </div>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Failed</div>
-          <div style={s.statValue("#f87171")}>{stats.failed}</div>
-        </div>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Total logs</div>
-          <div style={s.statValue()}>{totalElements}</div>
-        </div>
+      {/* Page action bar */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginBottom: "16px" }}>
+        {lastUpdated && (
+          <span style={{ fontSize: "11.5px", color: c.textDim, alignSelf: "center" }}>Updated {lastUpdated}</span>
+        )}
+        <Button variant="light" size="sm" icon={<Icon.Refresh />} onClick={fetchLogs}>Refresh</Button>
       </div>
 
-      <div style={s.card}>
-        <div style={s.cardTitle}>
-          <span>Webhook delivery logs</span>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {lastUpdated && <span style={{ fontSize: "10px", color: "#334155" }}>Updated: {lastUpdated}</span>}
-            <select style={s.select} value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
-              <option value="">All status</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="FAILED">Failed</option>
-              <option value="PENDING">Pending</option>
-            </select>
-            <button style={{ ...s.btn(false), padding: "6px 12px" }} onClick={fetchLogs}>↻ Refresh</button>
-          </div>
-        </div>
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+        <MetricCard
+          label="Delivered"
+          value={stats.delivered}
+          valueColor={stats.delivered > 0 ? c.successText : c.text}
+          sub={totalElements > 0 ? `${((stats.delivered / Math.max(logs.length, 1)) * 100).toFixed(1)}% on this page` : "—"}
+        />
+        <MetricCard
+          label="Failed"
+          value={stats.failed}
+          valueColor={stats.failed > 0 ? c.dangerText : c.text}
+          sub={stats.failed > 0 ? "Manual retry available" : "All clear"}
+        />
+        <MetricCard
+          label="Pending"
+          value={stats.pending}
+          valueColor={stats.pending > 0 ? c.warningText : c.text}
+          sub={stats.pending > 0 ? "In backoff retry" : "—"}
+        />
+        <MetricCard label="Total logs" value={totalElements.toLocaleString()} sub="Across all status" />
+      </div>
 
-        <div style={{ fontSize: "10px", color: "#334155", marginBottom: "12px" }}>
-          💡 Click the ID badge on the right to copy it and auto fill retry box
+      {/* Delivery logs */}
+      <Card padded={false} style={{ marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "14px 20px", borderBottom: `1px solid ${c.divider}`, gap: "8px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: "13.5px", fontWeight: 500, color: c.text }}>Webhook delivery logs</div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginTop: "2px" }}>
+              Click the ID badge to copy and auto-fill the retry box below
+            </div>
+          </div>
+          <Select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+                  style={{ width: "160px", padding: "7px 32px 7px 12px", fontSize: "12.5px" }}>
+            <option value="">All status</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="FAILED">Failed</option>
+            <option value="PENDING">Pending</option>
+          </Select>
         </div>
 
         {loading ? (
-          <div style={s.empty}>Loading webhook logs...</div>
-        ) : logs.length === 0 ? (
-          <div style={s.empty}>
-            No webhook logs yet.
-            <br />
-            <span style={{ fontSize: "11px", color: "#334155", marginTop: "8px", display: "block" }}>
-              Make a payment → Notification Service sends webhook → logs appear here
-            </span>
+          <div style={{ padding: "48px", textAlign: "center", color: c.textDim, fontSize: "13px" }}>
+            Loading webhook logs…
           </div>
+        ) : logs.length === 0 ? (
+          <EmptyState
+            icon={<Icon.Webhook size={20} />}
+            title="No webhook logs yet"
+            description="Make a payment → Notification Service sends webhook → delivery logs appear here in real-time."
+          />
         ) : (
           <>
-            {logs.map(log => (
-              <div key={log.id} style={s.timelineItem}>
-                <div style={s.dot(dotColors[log.status] || "#fbbf24")}></div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#60a5fa", marginBottom: "4px" }}>
-                    POST {log.callback_url || "webhook URL"}
-                  </div>
-                  <div style={{ fontSize: "11px", color: "#475569", marginBottom: "6px" }}>
-                    {log.event_type} · {log.response_code > 0 ? `${log.response_code} ${log.response_code === 200 ? "OK" : "Error"}` : "No response"} · {log.attempt_count} attempt{log.attempt_count !== 1 ? "s" : ""} · {timeAgo(log.last_attempt_at)}
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span style={s.badge(log.status)}>{log.status}</span>
-                    {log.status === "FAILED" && (
-                      <button style={{ ...s.btn(false), padding: "2px 10px", fontSize: "10px" }}
-                        onClick={() => copyAndSetId(log.id)}>
-                        Set for retry →
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div style={s.idBadge}
-                  onClick={() => copyAndSetId(log.id)}
-                  title={`Click to copy & set for retry: ${log.id}`}>
-                  {log.id?.substring(0, 8)}... 📋
-                </div>
-              </div>
-            ))}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Event", "Webhook ID", "Endpoint", "HTTP", "Attempts", "Status", "Time", ""].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map(log => {
+                  const b = webhookBadge(log.status);
+                  return (
+                    <tr key={log.id}>
+                      <td style={td}>
+                        <span style={{ fontWeight: 500 }}>{log.event_type || "—"}</span>
+                      </td>
+                      <td style={tdMono}>
+                        <button onClick={() => copyAndSetId(log.id)}
+                                title={`Click to copy & set for retry: ${log.id}`}
+                                style={{
+                                  background: c.surfaceSubtle, border: `1px solid ${c.border}`,
+                                  borderRadius: radius.sm, padding: "3px 8px",
+                                  fontSize: "11.5px", color: c.indigo,
+                                  fontFamily: "'JetBrains Mono', monospace",
+                                  cursor: "copy", fontWeight: 500,
+                                }}>
+                          {log.id?.substring(0, 8)}…
+                        </button>
+                      </td>
+                      <td style={{ ...tdMono, color: c.textMuted, maxWidth: "240px", overflow: "hidden",
+                                    textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={log.callback_url}>
+                        {log.callback_url || "—"}
+                      </td>
+                      <td style={tdMono}>
+                        <span style={{ color: log.response_code === 200 ? c.successText : (log.response_code > 0 ? c.dangerText : c.textDim) }}>
+                          {log.response_code > 0 ? log.response_code : "—"}
+                        </span>
+                      </td>
+                      <td style={td}>{log.attempt_count}</td>
+                      <td style={td}><Badge kind={b.kind}>{b.icon}{b.label}</Badge></td>
+                      <td style={{ ...td, color: c.textDim }}>{timeAgo(log.last_attempt_at)}</td>
+                      <td style={td}>
+                        {log.status === "FAILED" && (
+                          <Button variant="light" size="sm" onClick={() => copyAndSetId(log.id)}>
+                            Set for retry
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
 
-            <div style={s.pagination}>
-              <span>Page {page + 1} of {totalPages || 1} · {totalElements} total</span>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button style={s.btn(false)} onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>← Prev</button>
-                <button style={s.btn(false)} onClick={() => setPage(page + 1)} disabled={page >= totalPages - 1}>Next →</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                          padding: "12px 20px", borderTop: `1px solid ${c.divider}`,
+                          fontSize: "12px", color: c.textDim }}>
+              <span>Page {page + 1} of {Math.max(totalPages, 1)} · {totalElements} total</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <Button variant="light" size="sm" icon={<Icon.ChevronLeft />}
+                        onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>
+                  Prev
+                </Button>
+                <Button variant="light" size="sm" iconRight={<Icon.ChevronRight />}
+                        onClick={() => setPage(page + 1)} disabled={page >= totalPages - 1}>
+                  Next
+                </Button>
               </div>
             </div>
           </>
         )}
-      </div>
+      </Card>
 
-      <div style={s.card}>
-        <div style={s.cardTitle}>Manually retry webhook</div>
-        <div style={{ fontSize: "11px", color: "#334155", marginBottom: "10px" }}>
-          💡 Click any webhook ID above to auto fill here
-        </div>
-        <label style={s.label}>Webhook log ID</label>
-        <input style={s.input}
-          placeholder="Click webhook ID above or paste UUID here"
-          value={retryId}
-          onChange={(e) => setRetryId(e.target.value)} />
-        <button style={s.btn(true)} onClick={handleRetry}>↻ Retry webhook</button>
-        {retryResult && <div style={s.success}>{retryResult}</div>}
-        {retryError && <div style={s.error}>{retryError}</div>}
-      </div>
-
-      <div style={s.card}>
-        <div style={s.cardTitle}>Retry policy</div>
-        {[
-          { attempt: "Attempt 1", delay: "Immediate", desc: "First delivery on payment event" },
-          { attempt: "Attempt 2", delay: "30 seconds", desc: "First retry after failure" },
-          { attempt: "Attempt 3", delay: "60 seconds", desc: "Second retry" },
-          { attempt: "Attempt 4", delay: "120 seconds", desc: "Final retry — marked FAILED permanently" },
-        ].map(r => (
-          <div key={r.attempt} style={{ display: "flex", gap: "16px", padding: "12px 0", borderBottom: "1px solid #1e2235", fontSize: "12px" }}>
-            <div style={{ width: "100px", color: "#60a5fa", fontFamily: "monospace" }}>{r.attempt}</div>
-            <div style={{ width: "120px", color: "#fbbf24" }}>{r.delay}</div>
-            <div style={{ color: "#64748b" }}>{r.desc}</div>
+      {/* Manual retry */}
+      <Card style={{ marginBottom: "16px", background: c.surfaceSubtle }}>
+        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+          <div style={{
+            width: "32px", height: "32px", borderRadius: radius.md,
+            background: c.indigoBg, display: "flex", alignItems: "center", justifyContent: "center",
+            color: c.indigo, flexShrink: 0, marginTop: "2px",
+          }}><Icon.Refresh size={16} /></div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: "13px", fontWeight: 500, color: c.text }}>Manually retry webhook</div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginBottom: "10px" }}>
+              Click any webhook ID above to auto-fill, or paste a UUID
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ flex: 1 }}>
+                <Input placeholder="wh_a3f9c2b1… or paste full UUID"
+                       value={retryId}
+                       onChange={(e) => setRetryId(e.target.value)}
+                       onKeyDown={(e) => e.key === "Enter" && handleRetry()} />
+              </div>
+              <Button variant="primary" size="md" icon={<Icon.Refresh />} onClick={handleRetry}>
+                Retry webhook
+              </Button>
+            </div>
+            {retryResult && (
+              <div style={{
+                marginTop: "10px", padding: "9px 12px",
+                background: c.successBg, border: `1px solid ${c.successBorder}`,
+                borderRadius: radius.md, color: c.successText, fontSize: "12.5px",
+                display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <Icon.Check size={14} />{retryResult}
+              </div>
+            )}
+            {retryError && (
+              <div style={{
+                marginTop: "10px", padding: "9px 12px",
+                background: c.dangerBg, border: "1px solid #FCA5A5",
+                borderRadius: radius.md, color: c.dangerText, fontSize: "12.5px",
+                display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <Icon.Alert size={14} />{retryError}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
+        </div>
+      </Card>
+
+      {/* Retry policy */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+          <div>
+            <div style={{ fontSize: "13.5px", fontWeight: 500, color: c.text }}>Retry policy</div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginTop: "2px" }}>
+              Exponential backoff · failed deliveries are retried automatically
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
+          {retryPolicy.map((r, idx) => (
+            <div key={r.attempt} style={{
+              padding: "12px 14px", background: c.surfaceSubtle,
+              borderRadius: radius.lg, border: `1px solid ${c.border}`,
+            }}>
+              <div style={{ fontSize: "10.5px", color: c.textDim, fontWeight: 500,
+                            textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "4px" }}>
+                {r.attempt}
+              </div>
+              <div style={{ fontSize: "14px", fontWeight: 500, color: idx === 0 ? c.indigo : c.text, marginBottom: "6px" }}>
+                {r.delay}
+              </div>
+              <div style={{ fontSize: "11.5px", color: c.textDim, lineHeight: 1.45 }}>
+                {r.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
+
+const th = {
+  fontSize: "11px", fontWeight: 500, color: c.textDim, textTransform: "uppercase",
+  letterSpacing: "0.04em", textAlign: "left", padding: "10px 20px",
+  borderBottom: `1px solid ${c.border}`, background: c.surfaceSubtle,
+};
+const td = {
+  padding: "12px 20px", fontSize: "13px", color: c.text,
+  borderBottom: `1px solid ${c.divider}`,
+};
+const tdMono = {
+  ...td, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px",
+};

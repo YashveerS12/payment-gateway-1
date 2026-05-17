@@ -1,36 +1,28 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { initiatePayment, listPayments, getPaymentStatus } from "../services/api";
-
-const s = {
-  card: { background: "#0f1117", border: "1px solid #1e2235", borderRadius: "8px", padding: "24px", marginBottom: "20px" },
-  cardTitle: { fontSize: "12px", color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" },
-  label: { fontSize: "11px", color: "#475569", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px", display: "block" },
-  hint: { fontSize: "10px", color: "#334155", marginTop: "-10px", marginBottom: "14px", letterSpacing: "0.03em" },
-  input: { width: "100%", background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "10px 12px", fontSize: "13px", color: "#e2e8f0", outline: "none", marginBottom: "14px", fontFamily: "inherit", boxSizing: "border-box" },
-  select: { width: "100%", background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "10px 12px", fontSize: "13px", color: "#e2e8f0", outline: "none", marginBottom: "14px", fontFamily: "inherit", boxSizing: "border-box" },
-  btn: (primary) => ({ padding: "10px 18px", borderRadius: "4px", fontSize: "12px", fontWeight: "600", cursor: "pointer", border: primary ? "none" : "1px solid #1e2235", background: primary ? "#2563eb" : "transparent", color: primary ? "white" : "#64748b", fontFamily: "inherit", letterSpacing: "0.08em", textTransform: "uppercase" }),
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { fontSize: "10px", color: "#475569", textAlign: "left", padding: "8px 0", borderBottom: "1px solid #1e2235", letterSpacing: "0.1em", textTransform: "uppercase" },
-  td: { fontSize: "12px", color: "#94a3b8", padding: "12px 0", borderBottom: "1px solid #0f1117" },
-  badge: (type) => {
-    const c = { SUCCESS: { background: "#064e3b30", color: "#34d399" }, FAILED: { background: "#4c1d2430", color: "#f87171" }, PROCESSING: { background: "#451a0330", color: "#fbbf24" }, INITIATED: { background: "#1e3a5f30", color: "#60a5fa" } };
-    return { display: "inline-block", padding: "3px 10px", borderRadius: "3px", fontSize: "10px", fontWeight: "600", letterSpacing: "0.08em", textTransform: "uppercase", ...(c[type] || c.INITIATED) };
-  },
-  success: { background: "#064e3b20", border: "1px solid #065f46", borderRadius: "4px", padding: "16px", marginTop: "16px" },
-  error: { background: "#4c1d2420", border: "1px solid #7f1d1d", borderRadius: "4px", padding: "12px", marginTop: "12px", fontSize: "12px", color: "#f87171" },
-  pre: { background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "12px", fontSize: "11px", color: "#60a5fa", overflow: "auto", marginTop: "8px", lineHeight: "1.6", whiteSpace: "pre-wrap" },
-  empty: { textAlign: "center", color: "#475569", padding: "32px", fontSize: "13px" },
-  pagination: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", fontSize: "12px", color: "#475569" },
-  keyBox: { background: "#0a0b0f", border: "1px solid #1e2235", borderRadius: "4px", padding: "10px 12px", fontSize: "11px", color: "#334155", fontFamily: "monospace", marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  copyToast: { position: "fixed", bottom: "24px", right: "24px", background: "#064e3b", border: "1px solid #065f46", borderRadius: "6px", padding: "12px 20px", fontSize: "12px", color: "#34d399", zIndex: 9999, letterSpacing: "0.05em" },
-};
+import {
+  c, radius, Icon, Card, Button, Input, Select, Field, Badge,
+  MetricCard, EmptyState, Toast, paymentBadge,
+} from "../ui/theme";
 
 const generateKey = () => "order-" + Date.now() + "-" + Math.random().toString(36).substring(2, 6);
 
+function timeAgo(dateStr) {
+  if (!dateStr) return "—";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return new Date(dateStr).toLocaleDateString("en-IN");
+}
+
 export default function PaymentsPage() {
   const { token } = useAuth();
+
+  // Initiate form
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ amount: "", currency: "INR", bankAdapter: "HDFC", note: "" });
   const [currentKey, setCurrentKey] = useState(generateKey());
@@ -38,6 +30,7 @@ export default function PaymentsPage() {
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
+  // List
   const [payments, setPayments] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -45,21 +38,17 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [fetchLoading, setFetchLoading] = useState(false);
 
+  // Status check
   const [statusCheckId, setStatusCheckId] = useState("");
   const [statusResult, setStatusResult] = useState(null);
   const [statusError, setStatusError] = useState("");
 
+  // Toast
   const [toast, setToast] = useState("");
-
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2500);
-  };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
   const copyToClipboard = (text, label) => {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast(`✅ ${label} copied!`);
-    });
+    navigator.clipboard.writeText(text).then(() => showToast(`${label} copied`));
   };
 
   const fetchPayments = async () => {
@@ -112,178 +101,303 @@ export default function PaymentsPage() {
     }
   };
 
+  const filters = [
+    { value: "",           label: "All",        count: totalElements },
+    { value: "SUCCESS",    label: "Succeeded" },
+    { value: "PROCESSING", label: "Processing" },
+    { value: "FAILED",     label: "Failed" },
+    { value: "INITIATED",  label: "Initiated" },
+  ];
+
   return (
     <div>
-      {toast && <div style={s.copyToast}>{toast}</div>}
+      {toast && <Toast kind="success">{toast}</Toast>}
 
-      {/* Initiate Payment */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>
-          <span>Initiate payment</span>
-          <button style={s.btn(false)} onClick={() => { setShowForm(!showForm); setResult(null); setFormError(""); }}>
-            {showForm ? "− Hide" : "+ New payment"}
-          </button>
-        </div>
+      {/* Page action bar */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginBottom: "16px" }}>
+        <Button variant="light" size="sm" icon={<Icon.Refresh />} onClick={fetchPayments}>Refresh</Button>
+        <Button variant="primary" size="sm" icon={<Icon.Plus />}
+                onClick={() => { setShowForm(!showForm); setResult(null); setFormError(""); }}>
+          {showForm ? "Hide form" : "New payment"}
+        </Button>
+      </div>
 
-        {showForm && (
-          <>
-            <div style={s.grid2}>
-              <div>
-                <label style={s.label}>Amount (INR)</label>
-                <input style={s.input} type="number" placeholder="5000" value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+      {/* ─── Initiate form ──────────────────────────────── */}
+      {showForm && (
+        <Card style={{ marginBottom: "16px" }}>
+          <div style={{ marginBottom: "16px" }}>
+            <div style={{ fontSize: "14px", fontWeight: 500, color: c.text, marginBottom: "2px" }}>Initiate payment</div>
+            <div style={{ fontSize: "12px", color: c.textDim }}>
+              Create a payment intent and route through your selected bank adapter.
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <Field label="Amount (INR)">
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)",
+                                color: c.textDim, fontSize: "14px", pointerEvents: "none" }}>₹</span>
+                <Input type="number" placeholder="5000" value={form.amount}
+                       onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                       style={{ paddingLeft: "24px" }} />
               </div>
-              <div>
-                <label style={s.label}>Bank adapter</label>
-                <select style={s.select} value={form.bankAdapter}
-                  onChange={(e) => setForm({ ...form, bankAdapter: e.target.value })}>
-                  <option>HDFC</option>
-                  <option>ICICI</option>
-                  <option>SBI</option>
-                </select>
+            </Field>
+            <Field label="Bank adapter">
+              <Select value={form.bankAdapter} onChange={(e) => setForm({ ...form, bankAdapter: e.target.value })}>
+                <option>HDFC</option>
+                <option>ICICI</option>
+                <option>SBI</option>
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Note" optional="optional" hint="Any note you want to attach to this payment">
+            <Input placeholder="e.g. Payment for Order #123" value={form.note}
+                   onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          </Field>
+
+          <Field label="Idempotency key" optional="auto-generated">
+            <div style={{ display: "flex", gap: "6px" }}>
+              <Input value={currentKey} readOnly
+                     style={{ background: c.surfaceSubtle, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }} />
+              <Button variant="light" size="md" icon={<Icon.Refresh />}
+                      onClick={() => setCurrentKey(generateKey())} title="Generate new" />
+              <Button variant="light" size="md" icon={<Icon.Copy />}
+                      onClick={() => copyToClipboard(currentKey, "Key")} title="Copy" />
+            </div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginTop: "5px" }}>
+              Prevents duplicate charges if the request retries. Stored in Redis.
+            </div>
+          </Field>
+
+          <div style={{ display: "flex", gap: "10px", marginTop: "8px", paddingTop: "14px", borderTop: `1px solid ${c.divider}` }}>
+            <Button variant="light" size="md" onClick={() => setShowForm(false)} style={{ flex: 1 }}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="md" onClick={handleSubmit} disabled={formLoading} loading={formLoading}
+                    icon={<Icon.Bolt size={14} />} style={{ flex: 2 }}>
+              {formLoading ? "Processing" : "Submit payment"}
+            </Button>
+          </div>
+
+          {/* Result */}
+          {result && (
+            <div style={{
+              marginTop: "14px",
+              background: result.status === "SUCCESS" ? c.successBg : c.dangerBg,
+              border: `1px solid ${result.status === "SUCCESS" ? c.successBorder : "#FCA5A5"}`,
+              borderRadius: radius.lg, padding: "14px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px",
+                            color: result.status === "SUCCESS" ? c.successText : c.dangerText,
+                            fontSize: "13px", fontWeight: 500 }}>
+                {result.status === "SUCCESS" ? <Icon.Check size={14} /> : <Icon.X size={14} />}
+                Payment {result.status}
+                {result.status === "SUCCESS" && result.bankRefId && (
+                  <span style={{ fontWeight: 400, fontSize: "12px" }}> · Bank Ref: {result.bankRefId}</span>
+                )}
               </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                <span style={{ fontSize: "11.5px", color: c.textDim }}>Payment ID:</span>
+                <code style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: c.indigo, flex: 1 }}>
+                  {result.id}
+                </code>
+                <Button variant="light" size="sm" icon={<Icon.Copy />}
+                        onClick={() => { copyToClipboard(result.id, "Payment ID"); setStatusCheckId(result.id); }}>
+                  Copy & poll
+                </Button>
+              </div>
+              <pre style={{
+                background: c.surface, border: `1px solid ${c.border}`, borderRadius: radius.md,
+                padding: "10px 12px", fontSize: "11.5px", color: c.textMuted, overflow: "auto",
+                lineHeight: 1.55, whiteSpace: "pre-wrap", fontFamily: "'JetBrains Mono', monospace",
+                margin: 0,
+              }}>{JSON.stringify(result, null, 2)}</pre>
             </div>
-
-            <label style={s.label}>Note (optional)</label>
-            <input style={s.input} placeholder="e.g. Payment for Order #123"
-              value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-            <div style={s.hint}>Any note you want to attach to this payment</div>
-
-            <label style={s.label}>Transaction ID (auto generated)</label>
-            <div style={s.keyBox}>
-              <span>{currentKey}</span>
-              <span style={{ fontSize: "10px", color: "#1e3a5f" }}>AUTO</span>
+          )}
+          {formError && (
+            <div style={{
+              marginTop: "12px", background: c.dangerBg, border: "1px solid #FCA5A5",
+              borderRadius: radius.lg, padding: "10px 12px",
+              color: c.dangerText, fontSize: "12.5px",
+              display: "flex", alignItems: "center", gap: "8px",
+            }}>
+              <Icon.Alert size={14} />{formError}
             </div>
+          )}
+        </Card>
+      )}
 
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button style={s.btn(true)} onClick={handleSubmit} disabled={formLoading}>
-                {formLoading ? "Processing..." : "Submit payment"}
-              </button>
-              <button style={s.btn(false)} onClick={() => setShowForm(false)}>Cancel</button>
+      {/* ─── Quick stats ────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px", marginBottom: "16px" }}>
+        <MetricCard label="All payments" value={totalElements.toLocaleString()} />
+        <MetricCard label="Showing" value={payments.length}
+                    sub={`page ${page + 1} of ${Math.max(totalPages, 1)}`} />
+        <MetricCard label="Filter"
+                    value={statusFilter ? paymentBadge(statusFilter).label : "All"}
+                    sub={statusFilter ? "filter active" : "no filter"} />
+        <MetricCard label="Idempotency"
+                    value={<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "13px" }}>Redis</span>}
+                    sub="Active duplicate prevention" />
+      </div>
+
+      {/* ─── Poll status panel ─────────────────────────── */}
+      <Card style={{ marginBottom: "16px", background: c.surfaceSubtle }}>
+        <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div style={{
+            width: "32px", height: "32px", borderRadius: radius.md,
+            background: c.indigoBg, display: "flex", alignItems: "center", justifyContent: "center",
+            color: c.indigo, flexShrink: 0, marginTop: "2px",
+          }}><Icon.Search size={16} /></div>
+          <div style={{ flex: 1, minWidth: "280px" }}>
+            <div style={{ fontSize: "13px", fontWeight: 500, color: c.text }}>Poll payment status</div>
+            <div style={{ fontSize: "11.5px", color: c.textDim, marginBottom: "10px" }}>
+              Click any row below to auto-fill, or paste a payment ID.
             </div>
-
-            {result && (
-              <div style={s.success}>
-                <div style={{ fontSize: "12px", color: result.status === "SUCCESS" ? "#34d399" : "#f87171", marginBottom: "8px" }}>
-                  {result.status === "SUCCESS" ? "✅ Payment SUCCESS!" : "❌ Payment FAILED"}
-                  {result.status === "SUCCESS" && ` — Bank Ref: ${result.bankRefId}`}
+            <div style={{ display: "flex", gap: "8px" }}>
+              <div style={{ flex: 1 }}>
+                <Input placeholder="pay_8f3a92c1…" value={statusCheckId}
+                       onChange={(e) => setStatusCheckId(e.target.value)}
+                       onKeyDown={(e) => e.key === "Enter" && handleCheckStatus()} />
+              </div>
+              <Button variant="primary" size="md" onClick={handleCheckStatus}>Check status</Button>
+            </div>
+            {statusResult && (
+              <div style={{
+                marginTop: "10px", background: c.surface, border: `1px solid ${c.border}`,
+                borderRadius: radius.md, padding: "10px 12px",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px",
+                              fontSize: "12px", fontWeight: 500, color: c.successText }}>
+                  <Icon.Check size={13} /> Status retrieved
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "11px", color: "#475569" }}>Payment ID:</span>
-                  <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#60a5fa" }}>{result.id}</span>
-                  <button style={{ ...s.btn(false), padding: "2px 8px", fontSize: "10px" }}
-                    onClick={() => { copyToClipboard(result.id, "Payment ID"); setStatusCheckId(result.id); }}>
-                    📋 Copy & check status
-                  </button>
-                </div>
-                <pre style={s.pre}>{JSON.stringify(result, null, 2)}</pre>
+                <pre style={{
+                  margin: 0, fontSize: "11.5px", color: c.textMuted,
+                  fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.55,
+                  whiteSpace: "pre-wrap", maxHeight: "180px", overflow: "auto",
+                }}>{JSON.stringify(statusResult, null, 2)}</pre>
               </div>
             )}
-            {formError && <div style={s.error}>❌ {formError}</div>}
-          </>
-        )}
-      </div>
-
-      {/* Status Check */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>Poll payment status</div>
-        <div style={{ fontSize: "11px", color: "#334155", marginBottom: "10px" }}>
-          💡 Click any payment row below to auto fill the ID here
-        </div>
-        <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-          <input style={{ ...s.input, marginBottom: 0, flex: 1 }}
-            placeholder="Click any payment row below to auto fill"
-            value={statusCheckId}
-            onChange={(e) => setStatusCheckId(e.target.value)} />
-          <button style={{ ...s.btn(true), whiteSpace: "nowrap" }} onClick={handleCheckStatus}>
-            Check status
-          </button>
-        </div>
-        {statusResult && (
-          <div style={s.success}>
-            <div style={{ fontSize: "12px", color: "#34d399", marginBottom: "8px" }}>Status result:</div>
-            <pre style={s.pre}>{JSON.stringify(statusResult, null, 2)}</pre>
+            {statusError && (
+              <div style={{
+                marginTop: "10px", background: c.dangerBg, border: "1px solid #FCA5A5",
+                borderRadius: radius.md, padding: "8px 12px",
+                color: c.dangerText, fontSize: "12px",
+                display: "flex", alignItems: "center", gap: "8px",
+              }}>
+                <Icon.Alert size={13} />{statusError}
+              </div>
+            )}
           </div>
-        )}
-        {statusError && <div style={s.error}>❌ {statusError}</div>}
-      </div>
+        </div>
+      </Card>
 
-      {/* Payments List */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>
-          <span>All payments ({totalElements} total)</span>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <select style={{ ...s.select, marginBottom: 0, width: "140px", padding: "6px 10px", fontSize: "12px" }}
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
-              <option value="">All status</option>
-              <option value="SUCCESS">Success</option>
-              <option value="FAILED">Failed</option>
-              <option value="PROCESSING">Processing</option>
-              <option value="INITIATED">Initiated</option>
-            </select>
-            <button style={{ ...s.btn(false), padding: "6px 12px" }} onClick={fetchPayments}>↻ Refresh</button>
+      {/* ─── Payments table ────────────────────────────── */}
+      <Card padded={false}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${c.divider}`, gap: "8px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "4px", padding: "2px", background: c.surfaceMuted, borderRadius: radius.md }}>
+            {filters.map(f => {
+              const active = statusFilter === f.value;
+              return (
+                <button key={f.value || "all"}
+                  onClick={() => { setStatusFilter(f.value); setPage(0); }}
+                  style={{
+                    padding: "5px 10px", border: "none", borderRadius: radius.sm,
+                    background: active ? c.surface : "transparent",
+                    color: active ? c.text : c.textDim,
+                    fontSize: "12px", fontWeight: active ? 500 : 450,
+                    fontFamily: "inherit", cursor: "pointer",
+                    boxShadow: active ? "0 0 0 0.5px #E7E5E4" : "none",
+                  }}>
+                  {f.label}{f.count !== undefined && <span style={{ marginLeft: "5px", color: c.textDim }}>{f.count}</span>}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {fetchLoading ? (
-          <div style={s.empty}>Loading payments...</div>
+          <div style={{ padding: "48px", textAlign: "center", color: c.textDim, fontSize: "13px" }}>
+            Loading payments…
+          </div>
         ) : payments.length === 0 ? (
-          <div style={s.empty}>No payments yet. Click "+ New payment" to make one!</div>
+          <EmptyState
+            icon={<Icon.Card size={20} />}
+            title="No payments yet"
+            description="Click 'New payment' above to create your first transaction. It'll appear here once routed."
+          />
         ) : (
           <>
-            <div style={{ fontSize: "10px", color: "#334155", marginBottom: "10px" }}>
-              💡 Click any row to check status · Click ID to copy full UUID
+            <div style={{ fontSize: "11.5px", color: c.textDim, padding: "10px 20px 0" }}>
+              Click any row to auto-fill the status checker · click the ID to copy
             </div>
-            <table style={s.table}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={s.th}>Payment ID</th>
-                  <th style={s.th}>Amount</th>
-                  <th style={s.th}>Bank</th>
-                  <th style={s.th}>Bank Ref</th>
-                  <th style={s.th}>Status</th>
-                  <th style={s.th}>Time</th>
+                  {["Payment ID", "Amount", "Bank", "Bank Ref", "Status", "Time"].map(h => (
+                    <th key={h} style={{
+                      fontSize: "11px", fontWeight: 500, color: c.textDim, textTransform: "uppercase",
+                      letterSpacing: "0.04em", textAlign: "left", padding: "10px 20px",
+                      borderBottom: `1px solid ${c.border}`,
+                    }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {payments.map(p => (
-                  <tr key={p.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setStatusCheckId(p.id)}
-                    title="Click to check status">
-                    <td
-                      style={{ ...s.td, fontFamily: "monospace", fontSize: "11px", color: "#60a5fa", cursor: "copy" }}
-                      onClick={(e) => {
+                {payments.map(p => {
+                  const b = paymentBadge(p.status);
+                  return (
+                    <tr key={p.id}
+                      style={{ cursor: "pointer", transition: "background 0.1s" }}
+                      onClick={() => setStatusCheckId(p.id)}
+                      onMouseEnter={(e) => e.currentTarget.style.background = c.surfaceSubtle}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                      <td style={tdMono} onClick={(e) => {
                         e.stopPropagation();
                         copyToClipboard(p.id, "Payment ID");
                         setStatusCheckId(p.id);
-                      }}
-                      title={`Click to copy: ${p.id}`}>
-                      {p.id?.substring(0, 8)}... 📋
-                    </td>
-                    <td style={s.td}>₹{parseFloat(p.amount).toLocaleString("en-IN")}</td>
-                    <td style={s.td}>{p.bankAdapter || "—"}</td>
-                    <td style={{ ...s.td, fontFamily: "monospace", fontSize: "10px" }}>{p.bankRefId || "—"}</td>
-                    <td style={s.td}><span style={s.badge(p.status)}>{p.status}</span></td>
-                    <td style={{ ...s.td, color: "#475569", fontSize: "11px" }}>
-                      {new Date(p.createdAt).toLocaleTimeString()}
-                    </td>
-                  </tr>
-                ))}
+                      }} title={p.id}>
+                        <span style={{ color: c.indigo, cursor: "copy" }}>{p.id?.substring(0, 8)}…</span>
+                      </td>
+                      <td style={td}><span style={{ fontWeight: 500 }}>₹{parseFloat(p.amount).toLocaleString("en-IN")}</span></td>
+                      <td style={td}>{p.bankAdapter ? <Badge kind="neutral">{p.bankAdapter}</Badge> : "—"}</td>
+                      <td style={{ ...td, fontFamily: "'JetBrains Mono', monospace", fontSize: "11.5px", color: c.textDim }}>
+                        {p.bankRefId || "—"}
+                      </td>
+                      <td style={td}><Badge kind={b.kind}>{b.icon}{b.label}</Badge></td>
+                      <td style={{ ...td, color: c.textDim }}>{timeAgo(p.createdAt)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
-            <div style={s.pagination}>
-              <span>Page {page + 1} of {totalPages || 1} · {totalElements} total</span>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button style={s.btn(false)} onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>← Prev</button>
-                <button style={s.btn(false)} onClick={() => setPage(page + 1)} disabled={page >= totalPages - 1}>Next →</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                          padding: "12px 20px", borderTop: `1px solid ${c.divider}`,
+                          fontSize: "12px", color: c.textDim }}>
+              <span>Page {page + 1} of {Math.max(totalPages, 1)} · {totalElements} total</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <Button variant="light" size="sm" icon={<Icon.ChevronLeft />}
+                        onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}>
+                  Prev
+                </Button>
+                <Button variant="light" size="sm" iconRight={<Icon.ChevronRight />}
+                        onClick={() => setPage(page + 1)} disabled={page >= totalPages - 1}>
+                  Next
+                </Button>
               </div>
             </div>
           </>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
+
+const td = {
+  padding: "12px 20px", fontSize: "13px", color: c.text,
+  borderBottom: `1px solid ${c.divider}`,
+};
+const tdMono = {
+  ...td, fontFamily: "'JetBrains Mono', monospace", fontSize: "12px",
+};
